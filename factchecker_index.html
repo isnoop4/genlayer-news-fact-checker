@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>News Fact Checker — GenLayer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #171d27;
+    --panel: #1f2733;
+    --panel-border: #303b4a;
+    --paper: #e9e3d3;
+    --paper-ink: #1c1a14;
+    --paper-border: #d3c9ab;
+    --text: #e7e3d8;
+    --text-dim: #9aa3b2;
+    --gold: #c79a3e;
+    --gold-dim: #a8813a;
+    --supported: #4c9a6a;
+    --refuted: #c1553d;
+    --mixed: #b06fc7;
+    --unverifiable: #6b7686;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .brand {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 1.05rem;
+    font-style: italic;
+    color: var(--text-dim);
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+  }
+
+  button:active { transform: scale(0.98); }
+
+  button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  #connectBtn {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold-dim);
+  }
+
+  #connectBtn:hover:not(:disabled) { background: rgba(199, 154, 62, 0.1); }
+
+  #connectBtn.connected {
+    border-color: var(--panel-border);
+    color: var(--text-dim);
+  }
+
+  .claim-panel {
+    background: var(--paper);
+    color: var(--paper-ink);
+    border-radius: 4px;
+    padding: 28px 26px;
+    border: 1px solid var(--paper-border);
+    box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.5);
+    margin-bottom: 24px;
+  }
+
+  .claim-label {
+    font-size: 0.78rem;
+    color: #6b6248;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .claim-text {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 1.6rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .claim-text.placeholder { color: #8a8264; font-style: italic; }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--unverifiable);
+    flex-shrink: 0;
+  }
+
+  .status-dot.verified { background: var(--gold); }
+
+  .status-text {
+    font-size: 0.85rem;
+    color: #6b6248;
+  }
+
+  section {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 22px;
+    margin-bottom: 20px;
+  }
+
+  section h2 {
+    font-family: 'Newsreader', Georgia, serif;
+    font-weight: 500;
+    font-size: 1.1rem;
+    margin: 0 0 6px;
+  }
+
+  section p.hint {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin: 0 0 16px;
+    line-height: 1.5;
+  }
+
+  label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], input[type="url"] {
+    width: 100%;
+    background: var(--ink);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 11px 12px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    margin-bottom: 14px;
+  }
+
+  input[type="text"]:focus, input[type="url"]:focus {
+    outline: none;
+    border-color: var(--gold-dim);
+  }
+
+  .source-optional {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin: -8px 0 12px;
+  }
+
+  .verify-btn {
+    background: var(--gold);
+    color: #1c1608;
+    width: 100%;
+    padding: 12px;
+  }
+
+  .verify-btn:hover:not(:disabled) { background: #d6ab4c; }
+
+  .tx-status {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    min-height: 1.2em;
+  }
+
+  .tx-status.error { color: var(--refuted); }
+
+  .verdict-card {
+    display: none;
+  }
+
+  .verdict-card.show { display: block; }
+
+  .verdict-badge {
+    display: inline-block;
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    padding: 4px 4px;
+    margin-bottom: 14px;
+  }
+
+  .verdict-badge.SUPPORTED { color: var(--supported); }
+  .verdict-badge.REFUTED { color: var(--refuted); }
+  .verdict-badge.MIXED { color: var(--mixed); }
+  .verdict-badge.UNVERIFIABLE { color: var(--unverifiable); }
+
+  .verdict-meta {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .verdict-reason {
+    font-size: 0.94rem;
+    line-height: 1.6;
+    border-left: 2px solid var(--panel-border);
+    padding-left: 14px;
+  }
+
+  .contract-info {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    word-break: break-all;
+    border-top: 1px solid var(--panel-border);
+    padding-top: 16px;
+    margin-top: 4px;
+  }
+
+  .contract-info div { margin-bottom: 4px; }
+
+  .config-warning {
+    background: rgba(193, 85, 61, 0.12);
+    border: 1px solid rgba(193, 85, 61, 0.4);
+    color: #e2a190;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 0.85rem;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .config-warning code {
+    background: rgba(0, 0, 0, 0.25);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div class="brand">News Fact Checker</div>
+    <button id="connectBtn">Connect wallet</button>
+  </header>
+
+  <div id="configWarning" class="config-warning" style="display:none;">
+    Set <code>CONTRACT_ADDRESS</code> near the bottom of this file before
+    using this page — it currently still holds a placeholder value.
+  </div>
+
+  <div class="claim-panel">
+    <div class="claim-label">Claim</div>
+    <div id="claimText" class="claim-text placeholder">Loading claim…</div>
+    <div class="status-row">
+      <span id="statusDot" class="status-dot"></span>
+      <span id="statusText" class="status-text">Checking status…</span>
+    </div>
+  </div>
+
+  <div id="verdictCard" class="verdict-card">
+    <section>
+      <h2>Verdict</h2>
+      <div id="verdictBadge" class="verdict-badge"></div>
+      <div id="verdictMeta" class="verdict-meta"></div>
+      <div id="verdictReason" class="verdict-reason"></div>
+    </section>
+  </div>
+
+  <section id="verifySection">
+    <h2>Verify with sources</h2>
+    <p class="hint">
+      The contract fetches these URLs itself and asks GenLayer's validator
+      set to judge the claim against what it finds — it does not trust
+      typed-in claims about the sources. At least one source is required;
+      up to three are supported for cross-verification.
+    </p>
+    <label for="sourceUrl1">Source URL 1 (required)</label>
+    <input type="url" id="sourceUrl1" placeholder="https://en.wikipedia.org/wiki/...">
+    <label for="sourceUrl2">Source URL 2 (optional)</label>
+    <input type="url" id="sourceUrl2" placeholder="https://...">
+    <div class="source-optional">Leave blank if not using a second source.</div>
+    <label for="sourceUrl3">Source URL 3 (optional)</label>
+    <input type="url" id="sourceUrl3" placeholder="https://...">
+    <div class="source-optional">Leave blank if not using a third source.</div>
+    <button id="verifyBtn" class="verify-btn" disabled>Connect wallet to verify</button>
+    <div id="txStatus" class="tx-status"></div>
+  </section>
+
+  <div class="contract-info">
+    <div>Contract: <span id="contractAddrDisplay">—</span></div>
+    <div>Network: <span id="networkDisplay">—</span></div>
+  </div>
+
+</div>
+
+<script type="module">
+  // ---------------------------------------------------------------
+  // CONFIGURATION — edit these two values for your deployment
+  // ---------------------------------------------------------------
+  const CONTRACT_ADDRESS = "0x8A511e3CDC8CAA7907E4c45707A15bB77abBD67C";
+  // Use "studionet" while testing in GenLayer Studio, or
+  // "testnetAsimov" once you deploy to the public testnet.
+  const NETWORK = "studionet";
+  // ---------------------------------------------------------------
+
+  import { createClient } from "https://esm.sh/genlayer-js@latest";
+  import { studionet, testnetAsimov } from "https://esm.sh/genlayer-js@latest/chains";
+  import { TransactionStatus } from "https://esm.sh/genlayer-js@latest/types";
+
+  const chain = NETWORK === "testnetAsimov" ? testnetAsimov : studionet;
+
+  const readClient = createClient({ chain });
+
+  const el = (id) => document.getElementById(id);
+
+  const connectBtn = el("connectBtn");
+  const verifyBtn = el("verifyBtn");
+  const sourceUrl1Input = el("sourceUrl1");
+  const sourceUrl2Input = el("sourceUrl2");
+  const sourceUrl3Input = el("sourceUrl3");
+  const txStatus = el("txStatus");
+  const claimText = el("claimText");
+  const statusDot = el("statusDot");
+  const statusText = el("statusText");
+  const verdictCard = el("verdictCard");
+  const verdictBadge = el("verdictBadge");
+  const verdictMeta = el("verdictMeta");
+  const verdictReason = el("verdictReason");
+
+  let connectedAddress = null;
+  let writeClient = null;
+  let claimIsVerified = false;
+
+  el("contractAddrDisplay").textContent = CONTRACT_ADDRESS;
+  el("networkDisplay").textContent = chain.name || NETWORK;
+
+  if (CONTRACT_ADDRESS.includes("YOUR_DEPLOYED")) {
+    el("configWarning").style.display = "block";
+    verifyBtn.textContent = "Set CONTRACT_ADDRESS first";
+  }
+
+  function renderVerdict(verdictJsonStr) {
+    let data;
+    try {
+      data = JSON.parse(verdictJsonStr);
+    } catch {
+      return;
+    }
+    if (!data.verdict || data.verdict === "PENDING") return;
+
+    verdictCard.classList.add("show");
+    verdictBadge.textContent = data.verdict.replace(/_/g, " ");
+    verdictBadge.className = "verdict-badge " + data.verdict;
+    verdictMeta.textContent = "Confidence: " + (data.confidence || "—");
+    verdictReason.textContent = data.reason || "";
+  }
+
+  async function loadState() {
+    try {
+      const [claim, isVerified, verdictJson] = await Promise.all([
+        readClient.readContract({ address: CONTRACT_ADDRESS, functionName: "get_claim", args: [] }),
+        readClient.readContract({ address: CONTRACT_ADDRESS, functionName: "get_is_verified", args: [] }),
+        readClient.readContract({ address: CONTRACT_ADDRESS, functionName: "get_verdict", args: [] }),
+      ]);
+
+      claimText.textContent = claim;
+      claimText.classList.remove("placeholder");
+
+      claimIsVerified = !!isVerified;
+
+      if (claimIsVerified) {
+        statusDot.classList.add("verified");
+        statusText.textContent = "Verified";
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = "Claim already verified";
+        renderVerdict(verdictJson);
+      } else {
+        statusText.textContent = "Awaiting verification";
+        if (connectedAddress) {
+          verifyBtn.disabled = false;
+          verifyBtn.textContent = "Verify claim via GenLayer";
+        }
+      }
+    } catch (err) {
+      claimText.textContent = "Could not load contract state.";
+      claimText.classList.add("placeholder");
+      statusText.textContent = "";
+      console.error(err);
+
+      if (!el("retryBtn")) {
+        const retryBtn = document.createElement("button");
+        retryBtn.id = "retryBtn";
+        retryBtn.textContent = "Retry";
+        retryBtn.style.marginTop = "12px";
+        retryBtn.style.background = "transparent";
+        retryBtn.style.color = "var(--gold)";
+        retryBtn.style.border = "1px solid var(--gold-dim)";
+        retryBtn.onclick = () => {
+          retryBtn.remove();
+          loadState();
+        };
+        el("statusText").insertAdjacentElement("afterend", retryBtn);
+      }
+    }
+  }
+
+  async function ensureCorrectNetwork() {
+    const targetChainId = chain?.id;
+    if (!targetChainId) return;
+
+    const targetHex = "0x" + targetChainId.toString(16);
+
+    const currentHex = await window.ethereum.request({ method: "eth_chainId" });
+    if (currentHex.toLowerCase() === targetHex.toLowerCase()) return;
+
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: targetHex }],
+      });
+    } catch (switchErr) {
+      if (switchErr.code === 4902) {
+        const rpcUrl =
+          chain?.rpcUrls?.default?.http?.[0] ||
+          "https://studio.genlayer.com/api";
+
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: targetHex,
+            chainName: chain?.name || "GenLayer Studio",
+            rpcUrls: [rpcUrl],
+            nativeCurrency: chain?.nativeCurrency || {
+              name: "GEN",
+              symbol: "GEN",
+              decimals: 18,
+            },
+          }],
+        });
+      } else {
+        throw switchErr;
+      }
+    }
+  }
+
+  async function connectWallet() {
+    if (!window.ethereum) {
+      alert("No wallet extension found. Install a browser wallet (e.g. MetaMask) to interact with this contract.");
+      return;
+    }
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      connectedAddress = accounts[0];
+
+      try {
+        await ensureCorrectNetwork();
+      } catch (netErr) {
+        console.warn("Network check/switch skipped:", netErr);
+      }
+
+      writeClient = createClient({ chain, account: connectedAddress });
+
+      connectBtn.textContent = connectedAddress.slice(0, 6) + "…" + connectedAddress.slice(-4);
+      connectBtn.classList.add("connected");
+
+      if (!CONTRACT_ADDRESS.includes("YOUR_DEPLOYED") && !claimIsVerified) {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = "Verify claim via GenLayer";
+      }
+    } catch (err) {
+      console.error(err);
+      txStatus.textContent = "Wallet connection failed: " + (err?.message || err?.code || "unknown error");
+      txStatus.classList.add("error");
+    }
+  }
+
+  async function verifyClaim() {
+    const url1 = sourceUrl1Input.value.trim();
+    const url2 = sourceUrl2Input.value.trim();
+    const url3 = sourceUrl3Input.value.trim();
+
+    if (!url1) {
+      txStatus.textContent = "Enter at least Source URL 1.";
+      txStatus.classList.add("error");
+      return;
+    }
+    if (!writeClient) {
+      txStatus.textContent = "Connect a wallet first.";
+      txStatus.classList.add("error");
+      return;
+    }
+
+    verifyBtn.disabled = true;
+    txStatus.classList.remove("error");
+    txStatus.textContent = "Checking wallet network…";
+
+    try {
+      try {
+        await ensureCorrectNetwork();
+      } catch (netErr) {
+        console.warn("Network check/switch skipped:", netErr);
+      }
+
+      txStatus.textContent = "Sending transaction…";
+
+      const hash = await writeClient.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "verify_claim",
+        args: [url1, url2, url3],
+        value: 0,
+      });
+
+      txStatus.textContent = "Waiting for GenLayer consensus (leader + validators)…";
+
+      await writeClient.waitForTransactionReceipt({
+        hash,
+        status: TransactionStatus.ACCEPTED,
+      });
+
+      txStatus.textContent = "Verified. Refreshing…";
+      await loadState();
+      txStatus.textContent = "";
+    } catch (err) {
+      console.error(err);
+      txStatus.textContent = "Transaction failed: " + (err?.message || "see console for details");
+      txStatus.classList.add("error");
+      verifyBtn.disabled = false;
+    }
+  }
+
+  connectBtn.addEventListener("click", connectWallet);
+  verifyBtn.addEventListener("click", verifyClaim);
+
+  loadState();
+  setTimeout(() => {
+    if (claimText.classList.contains("placeholder")) {
+      loadState();
+    }
+  }, 4000);
+</script>
+
+</body>
+</html>
