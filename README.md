@@ -31,7 +31,7 @@ before consensus is reached.
 
 ## Live Demo
 
-[DEMO_URL — e.g. https://isnoop4.github.io/genlayer-news-fact-checker/]
+[https://isnoop4.github.io/genlayer-news-fact-checker/](https://isnoop4.github.io/genlayer-news-fact-checker/)
 
 ## Contract Details
 
@@ -106,8 +106,8 @@ before consensus is reached.
 
 ```bash
 # 1. Clone the repo
-git clone [YOUR_REPO_URL]
-cd [YOUR_REPO_NAME]
+git clone https://github.com/isnoop4/genlayer-news-fact-checker
+cd genlayer-news-fact-checker
 
 # 2. Open GenLayer Studio and load NewsFactChecker.py
 # 3. Deploy the contract with a constructor arg:
