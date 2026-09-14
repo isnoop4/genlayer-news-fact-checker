@@ -338,9 +338,10 @@
   const NETWORK = "studionet";
   // ---------------------------------------------------------------
 
-  import { createClient } from "https://esm.sh/genlayer-js@latest";
-  import { studionet, testnetAsimov } from "https://esm.sh/genlayer-js@latest/chains";
-  import { TransactionStatus } from "https://esm.sh/genlayer-js@latest/types";
+  // Pin versi genlayer-js (bukan @latest) sesuai saran steward
+  import { createClient } from "https://esm.sh/genlayer-js@0.1.0";
+  import { studionet, testnetAsimov } from "https://esm.sh/genlayer-js@0.1.0/chains";
+  import { TransactionStatus } from "https://esm.sh/genlayer-js@0.1.0/types";
 
   const chain = NETWORK === "testnetAsimov" ? testnetAsimov : studionet;
 
@@ -439,45 +440,6 @@
     }
   }
 
-  async function ensureCorrectNetwork() {
-    const targetChainId = chain?.id;
-    if (!targetChainId) return;
-
-    const targetHex = "0x" + targetChainId.toString(16);
-
-    const currentHex = await window.ethereum.request({ method: "eth_chainId" });
-    if (currentHex.toLowerCase() === targetHex.toLowerCase()) return;
-
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: targetHex }],
-      });
-    } catch (switchErr) {
-      if (switchErr.code === 4902) {
-        const rpcUrl =
-          chain?.rpcUrls?.default?.http?.[0] ||
-          "https://studio.genlayer.com/api";
-
-        await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [{
-            chainId: targetHex,
-            chainName: chain?.name || "GenLayer Studio",
-            rpcUrls: [rpcUrl],
-            nativeCurrency: chain?.nativeCurrency || {
-              name: "GEN",
-              symbol: "GEN",
-              decimals: 18,
-            },
-          }],
-        });
-      } else {
-        throw switchErr;
-      }
-    }
-  }
-
   async function connectWallet() {
     if (!window.ethereum) {
       alert("No wallet extension found. Install a browser wallet (e.g. MetaMask) to interact with this contract.");
@@ -487,13 +449,17 @@
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       connectedAddress = accounts[0];
 
-      try {
-        await ensureCorrectNetwork();
-      } catch (netErr) {
-        console.warn("Network check/switch skipped:", netErr);
-      }
+      // Inisialisasi writeClient dengan melempar 'provider' secara eksplisit
+      writeClient = createClient({ 
+        chain, 
+        account: connectedAddress,
+        provider: window.ethereum 
+      });
 
-      writeClient = createClient({ chain, account: connectedAddress });
+      // Menggunakan method bawaan SDK resmi untuk auto connect & network switch
+      if (writeClient.connect) {
+        await writeClient.connect(chain);
+      }
 
       connectBtn.textContent = connectedAddress.slice(0, 6) + "…" + connectedAddress.slice(-4);
       connectBtn.classList.add("connected");
@@ -530,10 +496,9 @@
     txStatus.textContent = "Checking wallet network…";
 
     try {
-      try {
-        await ensureCorrectNetwork();
-      } catch (netErr) {
-        console.warn("Network check/switch skipped:", netErr);
+      // Panggil method resmi SDK untuk memastikan koneksi network
+      if (writeClient.connect) {
+        await writeClient.connect(chain);
       }
 
       txStatus.textContent = "Sending transaction…";
@@ -575,4 +540,4 @@
 </script>
 
 </body>
-</html> 
+</html>
