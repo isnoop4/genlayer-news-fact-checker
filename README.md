@@ -40,8 +40,8 @@ before consensus is reached.
 | Network | GenLayer Studio (Studionet) |
 | RPC | https://studio.genlayer.com/api |
 | Chain ID | 61999 |
-| Contract address | 0x8A511e3CDC8CAA7907E4c45707A15bB77abBD67C |
-| Explorer link | https://explorer-studio.genlayer.com/address/0x8A511e3CDC8CAA7907E4c45707A15bB77abBD67C |
+| Contract address | 0x332809d43910b6260fEACbF093ce958Dc140d282 |
+| Explorer link | https://explorer-studio.genlayer.com/address/0x332809d43910b6260fEACbF093ce958Dc140d282 |
 
 ## Tech Stack
 
