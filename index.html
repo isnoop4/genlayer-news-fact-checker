@@ -441,10 +441,55 @@
     }
   }
 
-  // Network switching is handled by the SDK itself via
-  // writeClient.connect(NETWORK) — see connectWallet() and
-  // verifyClaim() below — rather than a hand-rolled
-  // wallet_switchEthereumChain/wallet_addEthereumChain implementation.
+  // Manual EIP-1193 network switch/add. This is used instead of the
+  // SDK's own client.connect() convenience method, because that
+  // method internally requires installing a MetaMask-specific Snap
+  // (genlayer-wallet-plugin) and fails with "wallet_getSnaps doesn't
+  // has corresponding handler" on any non-MetaMask wallet (Rabby,
+  // and likely others). This implementation only uses standard
+  // EIP-1193 methods supported by any compliant wallet.
+  async function ensureCorrectNetwork() {
+    const targetChainId = chain?.id;
+    if (!targetChainId) return;
+
+    const targetHex = "0x" + targetChainId.toString(16);
+
+    const currentHex = await window.ethereum.request({ method: "eth_chainId" });
+    if (currentHex.toLowerCase() === targetHex.toLowerCase()) return;
+
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: targetHex }],
+      });
+    } catch (switchErr) {
+      // 4902 = chain not yet added to the wallet
+      if (switchErr.code === 4902) {
+        const rpcUrl =
+          chain?.rpcUrls?.default?.http?.[0] ||
+          "https://studio.genlayer.com/api";
+
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: targetHex,
+            chainName: chain?.name || "GenLayer Studio",
+            rpcUrls: [rpcUrl],
+            nativeCurrency: chain?.nativeCurrency || {
+              name: "GEN",
+              symbol: "GEN",
+              decimals: 18,
+            },
+          }],
+        });
+      } else {
+        // Any other failure (e.g. user rejected the switch) is
+        // re-thrown so callers stop rather than proceed on the
+        // wrong network.
+        throw switchErr;
+      }
+    }
+  }
 
   async function connectWallet() {
     if (!window.ethereum) {
@@ -466,9 +511,9 @@
       });
 
       // Switch (or add) the wallet's active network to match NETWORK,
-      // using the SDK's own supported method. If this fails, stop —
-      // do not proceed with a write client on the wrong chain.
-      await writeClient.connect(NETWORK);
+      // using a wallet-agnostic EIP-1193 method. If this fails, stop
+      // — do not proceed with a write client on the wrong chain.
+      await ensureCorrectNetwork();
 
       connectBtn.textContent = connectedAddress.slice(0, 6) + "…" + connectedAddress.slice(-4);
       connectBtn.classList.add("connected");
@@ -510,7 +555,7 @@
       // sending the transaction. If this fails, stop the transaction
       // flow entirely rather than attempting a write on the wrong
       // chain (which would fail anyway, with a confusing error).
-      await writeClient.connect(NETWORK);
+      await ensureCorrectNetwork();
 
       txStatus.textContent = "Sending transaction…";
 
