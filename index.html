@@ -332,17 +332,17 @@
   // ---------------------------------------------------------------
   // CONFIGURATION — edit these two values for your deployment
   // ---------------------------------------------------------------
-  const CONTRACT_ADDRESS = "0x332809d43910b6260fEACbF093ce958Dc140d282";
+  const CONTRACT_ADDRESS = "0x8A511e3CDC8CAA7907E4c45707A15bB77abBD67C";
+  // Use "studionet" while testing in GenLayer Studio, or
+  // "testnetAsimov" once you deploy to the public testnet.
   const NETWORK = "studionet";
   // ---------------------------------------------------------------
 
-  // Bundled ESM Import dari Pinned Version (Mencegah Modul Tidak Ditemukan)
-  import { 
-    createClient, 
-    studionet, 
-    testnetAsimov, 
-    TransactionStatus 
-  } from "https://cdn.skypack.dev/genlayer-js";
+  // Pinned to a specific published version (not "@latest") so behavior
+  // is reproducible and verifiable, per genlayer-js docs guidance.
+  import { createClient } from "https://esm.sh/genlayer-js@1.1.8";
+  import { studionet, testnetAsimov } from "https://esm.sh/genlayer-js@1.1.8/chains";
+  import { TransactionStatus } from "https://esm.sh/genlayer-js@1.1.8/types";
 
   const chain = NETWORK === "testnetAsimov" ? testnetAsimov : studionet;
 
@@ -369,7 +369,7 @@
   let claimIsVerified = false;
 
   el("contractAddrDisplay").textContent = CONTRACT_ADDRESS;
-  el("networkDisplay").textContent = chain?.name || NETWORK;
+  el("networkDisplay").textContent = chain.name || NETWORK;
 
   if (CONTRACT_ADDRESS.includes("YOUR_DEPLOYED")) {
     el("configWarning").style.display = "block";
@@ -441,6 +441,11 @@
     }
   }
 
+  // Network switching is handled by the SDK itself via
+  // writeClient.connect(NETWORK) — see connectWallet() and
+  // verifyClaim() below — rather than a hand-rolled
+  // wallet_switchEthereumChain/wallet_addEthereumChain implementation.
+
   async function connectWallet() {
     if (!window.ethereum) {
       alert("No wallet extension found. Install a browser wallet (e.g. MetaMask) to interact with this contract.");
@@ -450,17 +455,20 @@
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       connectedAddress = accounts[0];
 
-      // PERBAIKAN STEWARD: Menambahkan provider secara eksplisit saat menginisialisasi client
-      writeClient = createClient({ 
-        chain, 
+      // The write client must be given the browser wallet's EIP-1193
+      // provider explicitly (per the genlayer-js docs) so that
+      // writeContract actually routes signing through the wallet,
+      // rather than relying on any implicit/undocumented fallback.
+      writeClient = createClient({
+        chain,
         account: connectedAddress,
-        provider: window.ethereum 
+        provider: window.ethereum,
       });
 
-      // PERBAIKAN STEWARD: Memanggil method connect resmi bawaan SDK
-      if (typeof writeClient.connect === "function") {
-        await writeClient.connect(chain);
-      }
+      // Switch (or add) the wallet's active network to match NETWORK,
+      // using the SDK's own supported method. If this fails, stop —
+      // do not proceed with a write client on the wrong chain.
+      await writeClient.connect(NETWORK);
 
       connectBtn.textContent = connectedAddress.slice(0, 6) + "…" + connectedAddress.slice(-4);
       connectBtn.classList.add("connected");
@@ -471,6 +479,7 @@
       }
     } catch (err) {
       console.error(err);
+      writeClient = null;
       txStatus.textContent = "Wallet connection failed: " + (err?.message || err?.code || "unknown error");
       txStatus.classList.add("error");
     }
@@ -497,10 +506,11 @@
     txStatus.textContent = "Checking wallet network…";
 
     try {
-      // Pastikan network terhubung sebelum eksekusi transaksi
-      if (typeof writeClient.connect === "function") {
-        await writeClient.connect(chain);
-      }
+      // Confirm the wallet is still on the correct network before
+      // sending the transaction. If this fails, stop the transaction
+      // flow entirely rather than attempting a write on the wrong
+      // chain (which would fail anyway, with a confusing error).
+      await writeClient.connect(NETWORK);
 
       txStatus.textContent = "Sending transaction…";
 
@@ -515,7 +525,7 @@
 
       await writeClient.waitForTransactionReceipt({
         hash,
-        status: TransactionStatus?.ACCEPTED || "ACCEPTED",
+        status: TransactionStatus.ACCEPTED,
       });
 
       txStatus.textContent = "Verified. Refreshing…";
