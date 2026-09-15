@@ -441,13 +441,6 @@
     }
   }
 
-  // Manual EIP-1193 network switch/add. This is used instead of the
-  // SDK's own client.connect() convenience method, because that
-  // method internally requires installing a MetaMask-specific Snap
-  // (genlayer-wallet-plugin) and fails with "wallet_getSnaps doesn't
-  // has corresponding handler" on any non-MetaMask wallet (Rabby,
-  // and likely others). This implementation only uses standard
-  // EIP-1193 methods supported by any compliant wallet.
   async function ensureCorrectNetwork() {
     const targetChainId = chain?.id;
     if (!targetChainId) return;
@@ -463,7 +456,6 @@
         params: [{ chainId: targetHex }],
       });
     } catch (switchErr) {
-      // 4902 = chain not yet added to the wallet
       if (switchErr.code === 4902) {
         const rpcUrl =
           chain?.rpcUrls?.default?.http?.[0] ||
@@ -483,9 +475,6 @@
           }],
         });
       } else {
-        // Any other failure (e.g. user rejected the switch) is
-        // re-thrown so callers stop rather than proceed on the
-        // wrong network.
         throw switchErr;
       }
     }
@@ -500,20 +489,13 @@
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       connectedAddress = accounts[0];
 
-      // The write client must be given the browser wallet's EIP-1193
-      // provider explicitly (per the genlayer-js docs) so that
-      // writeContract actually routes signing through the wallet,
-      // rather than relying on any implicit/undocumented fallback.
+      await ensureCorrectNetwork();
+
       writeClient = createClient({
         chain,
         account: connectedAddress,
         provider: window.ethereum,
       });
-
-      // Switch (or add) the wallet's active network to match NETWORK,
-      // using a wallet-agnostic EIP-1193 method. If this fails, stop
-      // — do not proceed with a write client on the wrong chain.
-      await ensureCorrectNetwork();
 
       connectBtn.textContent = connectedAddress.slice(0, 6) + "…" + connectedAddress.slice(-4);
       connectBtn.classList.add("connected");
@@ -551,19 +533,22 @@
     txStatus.textContent = "Checking wallet network…";
 
     try {
-      // Confirm the wallet is still on the correct network before
-      // sending the transaction. If this fails, stop the transaction
-      // flow entirely rather than attempting a write on the wrong
-      // chain (which would fail anyway, with a confusing error).
-      await ensureCorrectNetwork();
+      try {
+        await ensureCorrectNetwork();
+      } catch (netErr) {
+        txStatus.textContent = "Network switch failed or rejected. Transaction cancelled.";
+        txStatus.classList.add("error");
+        verifyBtn.disabled = false;
+        return;
+      }
 
-      txStatus.textContent = "Sending transaction…";
+      txStatus.textContent = "Sending transaction to wallet for signature…";
 
       const hash = await writeClient.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "verify_claim",
         args: [url1, url2, url3],
-        value: 0,
+        value: 0n,
       });
 
       txStatus.textContent = "Waiting for GenLayer consensus (leader + validators)…";
